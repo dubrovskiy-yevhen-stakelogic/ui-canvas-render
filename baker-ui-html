@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SVG Baker UI</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111318;
+      color: #f4f4f5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1f2937 0, #111318 48%, #090a0d 100%);
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .hint {
+      margin: 6px 0 0;
+      color: #a1a1aa;
+      font-size: 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: #a1a1aa;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input,
+    select {
+      height: 38px;
+      border: 1px solid #303642;
+      border-radius: 10px;
+      padding: 0 10px;
+      background: #151922;
+      color: #f4f4f5;
+    }
+
+    button {
+      height: 38px;
+      border: 0;
+      border-radius: 10px;
+      padding: 0 14px;
+      background: #ffc400;
+      color: #18181b;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #27272a;
+      color: #f4f4f5;
+      border: 1px solid #3f3f46;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      border: 1px solid #27272a;
+      border-radius: 18px;
+      background: rgba(17, 19, 24, 0.78);
+      overflow: hidden;
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.25);
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #27272a;
+      background: rgba(255, 255, 255, 0.03);
+      font-weight: 700;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 560px;
+      display: block;
+      resize: vertical;
+      border: 0;
+      padding: 14px;
+      outline: none;
+      background: #0b0d12;
+      color: #e5e7eb;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    .preview-wrap {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+    }
+
+    .preview {
+      min-height: 240px;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    canvas {
+      width: 192px;
+      height: 192px;
+      border-radius: 14px;
+      background:
+        linear-gradient(45deg, #20242d 25%, transparent 25%),
+        linear-gradient(-45deg, #20242d 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #20242d 75%),
+        linear-gradient(-45deg, transparent 75%, #20242d 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+      background-color: #111318;
+      box-shadow: inset 0 0 0 1px #27272a;
+    }
+
+    .meta {
+      padding: 14px;
+      border-left: 1px solid #27272a;
+      color: #d4d4d8;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .meta code {
+      background: #27272a;
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    .status {
+      min-height: 22px;
+      color: #a1a1aa;
+      font-size: 13px;
+    }
+
+    .status.error {
+      color: #fb7185;
+    }
+
+    .status.ok {
+      color: #86efac;
+    }
+
+    @media (max-width: 1100px) {
+      .grid,
+      .preview-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .meta {
+        border-left: 0;
+        border-top: 1px solid #27272a;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>SVG Baker UI</h1>
+        <p class="hint">Paste SVG → bake to canvas engine instructions → preview render.</p>
+      </div>
+
+      <div class="controls">
+        <label>
+          Export name
+          <input id="exportName" value="warningIcon" />
+        </label>
+
+        <label>
+          Output
+          <select id="outputMode">
+            <option value="encoded" selected>Encoded VLQ Tuple</option>
+            <option value="tuple">Compact Tuple</option>
+            <option value="compact-json">Compact Object JSON</option>
+            <option value="compact-ts">Compact Object TS module</option>
+            <option value="tuple-json">Formatted Tuple</option>
+            <option value="json">Formatted Object JSON</option>
+            <option value="ts">Formatted Object TS module</option>
+          </select>
+        </label>
+
+        <label>
+          Precision
+          <input id="precision" type="number" min="0" max="6" value="4" />
+        </label>
+
+        <button id="bakeBtn">Bake SVG</button>
+        <button id="formatBtn" class="secondary">Format</button>
+        <button id="copyBtn" class="secondary">Copy output</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <section class="panel">
+        <div class="panel-title">SVG input</div>
+        <textarea id="svgInput" spellcheck="false"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <path d="M15.9995 1.33334C19.8881 1.3375 23.6171 2.88449 26.3667 5.63412C29.1161 8.38372 30.662 12.1116 30.6662 16C30.6662 18.9008 29.8064 21.7365 28.1948 24.1484C26.5832 26.5603 24.2928 28.4407 21.6128 29.5508C18.9329 30.6608 15.9838 30.9513 13.1389 30.3854C10.294 29.8195 7.68084 28.422 5.62974 26.3711C3.57857 24.3199 2.18133 21.7057 1.61541 18.8607C1.04965 16.0158 1.34004 13.0665 2.45005 10.3867C3.56014 7.70707 5.43944 5.41616 7.85109 3.8047C10.2629 2.19319 13.0989 1.33344 15.9995 1.33334ZM20.8107 4.38543C18.5137 3.434 15.9862 3.18557 13.5477 3.67058C11.1091 4.15565 8.86835 5.35254 7.1102 7.11069C5.35231 8.86867 4.15522 11.1086 3.6701 13.5469C3.18503 15.9855 3.43344 18.5141 4.38494 20.8112C5.33642 23.1082 6.94791 25.0718 9.01515 26.4531C11.0824 27.8344 13.5133 28.5715 15.9995 28.5716C19.3325 28.568 22.5281 27.2421 24.8849 24.8854C27.2418 22.5286 28.5675 19.3331 28.5711 16C28.5711 13.5136 27.834 11.083 26.4527 9.01564C25.0713 6.94832 23.1078 5.33692 20.8107 4.38543ZM16.0633 19.4063C16.5734 19.4063 16.9782 19.537 17.2769 19.7982C17.5755 20.0595 17.7247 20.4084 17.7248 20.8438V21.3112C17.7247 21.7341 17.5753 22.076 17.2769 22.3372C16.9782 22.5986 16.5736 22.7292 16.0633 22.7292C15.5656 22.7292 15.1609 22.5986 14.8498 22.3372C14.5514 22.076 14.402 21.734 14.4019 21.3112V20.8438C14.4019 20.4084 14.5512 20.0595 14.8498 19.7982C15.1609 19.5369 15.5657 19.4063 16.0633 19.4063ZM16.9787 9.28907C17.3019 9.28913 17.5133 9.33931 17.6128 9.43881C17.7123 9.52593 17.7625 9.71254 17.7625 9.99871C17.7625 10.1978 17.7555 10.4346 17.743 10.7083C17.7306 10.982 17.719 11.2434 17.7066 11.4922L17.4071 17.6888C17.3946 17.9875 17.3387 18.1811 17.2391 18.2682C17.1395 18.3552 16.9282 18.3984 16.605 18.3984H15.5412C15.2304 18.3984 15.025 18.3551 14.9253 18.2682C14.8258 18.1811 14.7627 17.9875 14.7378 17.6888L14.4396 11.4922C14.4272 11.2434 14.4143 10.982 14.4019 10.7083C14.3894 10.4346 14.3836 10.1978 14.3836 9.99871C14.3836 9.71252 14.4338 9.52592 14.5334 9.43881C14.6455 9.33944 14.8567 9.28907 15.1675 9.28907H16.9787Z" fill="#FFC400"/>
+</svg></textarea>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          Output
+          <span id="status" class="status"></span>
+        </div>
+        <textarea id="output" spellcheck="false" readonly></textarea>
+      </section>
+    </section>
+
+    <section class="panel preview-wrap">
+      <div class="preview">
+        <canvas id="previewCanvas" width="384" height="384"></canvas>
+      </div>
+      <div class="meta" id="meta">
+        <strong>Supported now</strong><br />
+        <code>&lt;path&gt;</code>, <code>fill</code>, <code>fill-rule</code>, path commands <code>M L H V C Q Z</code> and relative variants.<br /><br />
+        Not supported yet: <code>A</code>, <code>S</code>, <code>T</code>, <code>stroke</code>, gradients, masks, transforms.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const Op = {
+      M: 0,
+      L: 1,
+      C: 2,
+      Q: 3,
+      Z: 4,
+    };
+
+    const svgInput = document.getElementById('svgInput');
+    const output = document.getElementById('output');
+    const exportNameInput = document.getElementById('exportName');
+    const outputMode = document.getElementById('outputMode');
+    const precisionInput = document.getElementById('precision');
+    const bakeBtn = document.getElementById('bakeBtn');
+    const formatBtn = document.getElementById('formatBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const statusEl = document.getElementById('status');
+    const metaEl = document.getElementById('meta');
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function setStatus(text, type) {
+      statusEl.textContent = text;
+      statusEl.className = `status ${type || ''}`;
+    }
+
+    function parseAttributes(tag) {
+      const out = {};
+      const re = /([:@\w-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
+      let m;
+
+      while ((m = re.exec(tag))) {
+        out[m[1]] = m[3] ?? m[4] ?? '';
+      }
+
+      return out;
+    }
+
+    function parseNumber(value, fallback = 0) {
+      if (value == null || value === '') return fallback;
+      const n = parseFloat(String(value));
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function parseViewBox(value, width, height) {
+      if (!value) return [0, 0, width, height];
+
+      const parts = value
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
+
+      if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) {
+        return [0, 0, width, height];
+      }
+
+      return [parts[0], parts[1], parts[2], parts[3]];
+    }
+
+    function tokenizePath(d) {
+      return d.match(/[a-zA-Z]|[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:e[-+]?\d+)?/gi) || [];
+    }
+
+    function isCommandToken(token) {
+      return !!token && /^[a-zA-Z]$/.test(token);
+    }
+
+    function createNumberRounder(precision) {
+      const p = Math.max(0, Math.min(8, Number(precision) || 0));
+      const m = 10 ** p;
+
+      return (value) => {
+        const rounded = Math.round((value + Number.EPSILON) * m) / m;
+        return Object.is(rounded, -0) ? 0 : rounded;
+      };
+    }
+
+    function unsupported(command) {
+      throw new Error(`Unsupported SVG path command: "${command}". Add support in baker before using this SVG.`);
+    }
+
+    function bakePathData(d, round) {
+      const tokens = tokenizePath(d);
+      const ops = [];
+
+      let i = 0;
+      let cmd = '';
+      let x = 0;
+      let y = 0;
+      let sx = 0;
+      let sy = 0;
+
+      const hasNum = () => i < tokens.length && !isCommandToken(tokens[i]);
+      const read = () => {
+        const token = tokens[i++];
+        const n = Number(token);
+        if (!Number.isFinite(n)) throw new Error(`Invalid path number: ${token}`);
+        return n;
+      };
+      const push = (...values) => {
+        for (const value of values) {
+          ops.push(typeof value === 'number' ? round(value) : value);
+        }
+      };
+
+      while (i < tokens.length) {
+        if (isCommandToken(tokens[i])) {
+          cmd = tokens[i++];
+        }
+
+        switch (cmd) {
+          case 'M': {
+            x = read();
+            y = read();
+            sx = x;
+            sy = y;
+            push(Op.M, x, y);
+
+            while (hasNum()) {
+              x = read();
+              y = read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'm': {
+            x += read();
+            y += read();
+            sx = x;
+            sy = y;
+            push(Op.M, x, y);
+
+            while (hasNum()) {
+              x += read();
+              y += read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'L': {
+            while (hasNum()) {
+              x = read();
+              y = read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'l': {
+            while (hasNum()) {
+              x += read();
+              y += read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'H': {
+            while (hasNum()) {
+              x = read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'h': {
+            while (hasNum()) {
+              x += read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'V': {
+            while (hasNum()) {
+              y = read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'v': {
+            while (hasNum()) {
+              y += read();
+              push(Op.L, x, y);
+            }
+            break;
+          }
+
+          case 'C': {
+            while (hasNum()) {
+              const x1 = read();
+              const y1 = read();
+              const x2 = read();
+              const y2 = read();
+              x = read();
+              y = read();
+              push(Op.C, x1, y1, x2, y2, x, y);
+            }
+            break;
+          }
+
+          case 'c': {
+            while (hasNum()) {
+              const x1 = x + read();
+              const y1 = y + read();
+              const x2 = x + read();
+              const y2 = y + read();
+              x += read();
+              y += read();
+              push(Op.C, x1, y1, x2, y2, x, y);
+            }
+            break;
+          }
+
+          case 'Q': {
+            while (hasNum()) {
+              const x1 = read();
+              const y1 = read();
+              x = read();
+              y = read();
+              push(Op.Q, x1, y1, x, y);
+            }
+            break;
+          }
+
+          case 'q': {
+            while (hasNum()) {
+              const x1 = x + read();
+              const y1 = y + read();
+              x += read();
+              y += read();
+              push(Op.Q, x1, y1, x, y);
+            }
+            break;
+          }
+
+          case 'Z':
+          case 'z': {
+            x = sx;
+            y = sy;
+            push(Op.Z);
+            break;
+          }
+
+          case 'A':
+          case 'a':
+          case 'S':
+          case 's':
+          case 'T':
+          case 't': {
+            unsupported(cmd);
+            break;
+          }
+
+          default: {
+            unsupported(cmd || '(empty)');
+          }
+        }
+      }
+
+      return ops;
+    }
+
+    function bakeSvg(svgText, precision) {
+      const round = createNumberRounder(precision);
+      const svgTagMatch = svgText.match(/<svg\b([^>]*)>/i);
+      if (!svgTagMatch) throw new Error('No <svg> root found');
+
+      const svgAttrs = parseAttributes(svgTagMatch[1]);
+      const width = parseNumber(svgAttrs.width, 0);
+      const height = parseNumber(svgAttrs.height, 0);
+      const viewBox = parseViewBox(svgAttrs.viewBox, width, height).map(round);
+
+      const inheritedFill = svgAttrs.fill && svgAttrs.fill !== 'none' ? svgAttrs.fill : undefined;
+      const pathMatches = [...svgText.matchAll(/<path\b([^>]*)\/?>/gi)];
+      if (pathMatches.length === 0) throw new Error('No <path> elements found');
+
+      const paths = pathMatches.map((match, index) => {
+        const attrs = parseAttributes(match[1]);
+        const d = attrs.d;
+        if (!d) throw new Error(`<path> #${index + 1} has no d attribute`);
+
+        const fill = attrs.fill && attrs.fill !== 'none' ? attrs.fill : inheritedFill;
+        const fillRule = attrs['fill-rule'] || attrs.fillRule;
+
+        const path = {
+          f: fill,
+          o: bakePathData(d, round),
+        };
+
+        if (fillRule && fillRule !== 'nonzero') {
+          path.r = fillRule;
+        }
+
+        return path;
+      });
+
+      return {
+        w: round(width),
+        h: round(height),
+        vb: viewBox,
+        p: paths,
+      };
+    }
+
+    function getSafeExportName(exportName) {
+      return exportName && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(exportName)
+        ? exportName
+        : 'bakedIcon';
+    }
+
+    const VLQ_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const VLQ_LOOKUP = Object.fromEntries([...VLQ_CHARS].map((char, index) => [char, index]));
+
+    function encodeVlqInt(value) {
+      let n = value < 0 ? (-value * 2) - 1 : value * 2;
+      let out = '';
+
+      do {
+        let digit = n % 32;
+        n = Math.floor(n / 32);
+        if (n > 0) digit += 32;
+        out += VLQ_CHARS[digit];
+      } while (n > 0);
+
+      return out;
+    }
+
+    function createVlqReader(text) {
+      let index = 0;
+
+      return () => {
+        let result = 0;
+        let multiplier = 1;
+        let continuation = true;
+
+        while (continuation) {
+          if (index >= text.length) {
+            throw new Error('Unexpected end of VLQ string');
+          }
+
+          const digit = VLQ_LOOKUP[text[index++]];
+          if (digit == null) {
+            throw new Error(`Invalid VLQ character: ${text[index - 1]}`);
+          }
+
+          continuation = digit >= 32;
+          result += (digit % 32) * multiplier;
+          multiplier *= 32;
+        }
+
+        return result % 2 === 1 ? -((result + 1) / 2) : result / 2;
+      };
+    }
+
+    function quantize(value, precision) {
+      return Math.round(value * (10 ** precision));
+    }
+
+    function dequantize(value, precision) {
+      const scale = 10 ** precision;
+      const n = value / scale;
+      return Object.is(n, -0) ? 0 : n;
+    }
+
+    function encodeOpsVlq(ops, precision) {
+      let i = 0;
+      let x = 0;
+      let y = 0;
+      let sx = 0;
+      let sy = 0;
+      let out = '';
+
+      const push = (value) => {
+        out += encodeVlqInt(value);
+      };
+
+      const pushPointFromBase = (baseX, baseY, px, py) => {
+        const ix = quantize(px, precision);
+        const iy = quantize(py, precision);
+        push(ix - baseX);
+        push(iy - baseY);
+        return [ix, iy];
+      };
+
+      while (i < ops.length) {
+        const op = ops[i++];
+        push(op);
+
+        switch (op) {
+          case Op.M: {
+            const [nx, ny] = pushPointFromBase(x, y, ops[i++], ops[i++]);
+            x = nx;
+            y = ny;
+            sx = x;
+            sy = y;
+            break;
+          }
+
+          case Op.L: {
+            const [nx, ny] = pushPointFromBase(x, y, ops[i++], ops[i++]);
+            x = nx;
+            y = ny;
+            break;
+          }
+
+          case Op.C: {
+            const baseX = x;
+            const baseY = y;
+            pushPointFromBase(baseX, baseY, ops[i++], ops[i++]);
+            pushPointFromBase(baseX, baseY, ops[i++], ops[i++]);
+            const [nx, ny] = pushPointFromBase(baseX, baseY, ops[i++], ops[i++]);
+            x = nx;
+            y = ny;
+            break;
+          }
+
+          case Op.Q: {
+            const baseX = x;
+            const baseY = y;
+            pushPointFromBase(baseX, baseY, ops[i++], ops[i++]);
+            const [nx, ny] = pushPointFromBase(baseX, baseY, ops[i++], ops[i++]);
+            x = nx;
+            y = ny;
+            break;
+          }
+
+          case Op.Z: {
+            x = sx;
+            y = sy;
+            break;
+          }
+
+          default:
+            throw new Error(`Unknown op for VLQ encoding: ${op}`);
+        }
+      }
+
+      return out;
+    }
+
+    function decodeOpsVlq(text, precision) {
+      const read = createVlqReader(text);
+      const ops = [];
+      let x = 0;
+      let y = 0;
+      let sx = 0;
+      let sy = 0;
+
+      const readPointFromBase = (baseX, baseY) => {
+        const px = baseX + read();
+        const py = baseY + read();
+        return [px, py];
+      };
+
+      while (true) {
+        let op;
+
+        try {
+          op = read();
+        } catch (error) {
+          if (error instanceof Error && error.message === 'Unexpected end of VLQ string') break;
+          throw error;
+        }
+
+        ops.push(op);
+
+        switch (op) {
+          case Op.M: {
+            const [nx, ny] = readPointFromBase(x, y);
+            x = nx;
+            y = ny;
+            sx = x;
+            sy = y;
+            ops.push(dequantize(x, precision), dequantize(y, precision));
+            break;
+          }
+
+          case Op.L: {
+            const [nx, ny] = readPointFromBase(x, y);
+            x = nx;
+            y = ny;
+            ops.push(dequantize(x, precision), dequantize(y, precision));
+            break;
+          }
+
+          case Op.C: {
+            const baseX = x;
+            const baseY = y;
+            const [x1, y1] = readPointFromBase(baseX, baseY);
+            const [x2, y2] = readPointFromBase(baseX, baseY);
+            const [nx, ny] = readPointFromBase(baseX, baseY);
+            x = nx;
+            y = ny;
+            ops.push(
+              dequantize(x1, precision), dequantize(y1, precision),
+              dequantize(x2, precision), dequantize(y2, precision),
+              dequantize(x, precision), dequantize(y, precision),
+            );
+            break;
+          }
+
+          case Op.Q: {
+            const baseX = x;
+            const baseY = y;
+            const [x1, y1] = readPointFromBase(baseX, baseY);
+            const [nx, ny] = readPointFromBase(baseX, baseY);
+            x = nx;
+            y = ny;
+            ops.push(
+              dequantize(x1, precision), dequantize(y1, precision),
+              dequantize(x, precision), dequantize(y, precision),
+            );
+            break;
+          }
+
+          case Op.Z:
+            x = sx;
+            y = sy;
+            break;
+
+          default:
+            throw new Error(`Unknown decoded op: ${op}`);
+        }
+      }
+
+      return ops;
+    }
+
+    function toTupleData(data) {
+      return [
+        data.w,
+        data.h,
+        data.vb[0],
+        data.vb[1],
+        data.vb[2],
+        data.vb[3],
+        data.p.map((path) => {
+          const item = [path.f || 0, path.o];
+          if (path.r) item.push(path.r);
+          return item;
+        }),
+      ];
+    }
+
+    function toEncodedTupleData(data, precision) {
+      return [
+        data.w,
+        data.h,
+        data.vb[0],
+        data.vb[1],
+        data.vb[2],
+        data.vb[3],
+        precision,
+        data.p.map((path) => {
+          const item = [path.f || 0, encodeOpsVlq(path.o, precision)];
+          if (path.r) item.push(path.r);
+          return item;
+        }),
+      ];
+    }
+
+    function fromEncodedTupleData(tuple) {
+      if (!Array.isArray(tuple) || tuple.length < 8) {
+        throw new Error('Invalid encoded tuple format');
+      }
+
+      const [w, h, vx, vy, vw, vh, precision, paths] = tuple;
+
+      if (!Array.isArray(paths)) {
+        throw new Error('Invalid encoded tuple paths');
+      }
+
+      return {
+        w,
+        h,
+        vb: [vx, vy, vw, vh],
+        p: paths.map((path) => {
+          if (!Array.isArray(path) || path.length < 2) {
+            throw new Error('Invalid encoded tuple path item');
+          }
+
+          const [fill, encodedOps, fillRule] = path;
+          const item = {
+            f: fill || undefined,
+            o: decodeOpsVlq(encodedOps, precision),
+          };
+
+          if (fillRule) item.r = fillRule;
+          return item;
+        }),
+      };
+    }
+
+    function fromTupleData(tuple) {
+      if (Array.isArray(tuple) && tuple.length >= 8 && typeof tuple[6] === 'number' && Array.isArray(tuple[7])) {
+        return fromEncodedTupleData(tuple);
+      }
+
+      if (!Array.isArray(tuple) || tuple.length < 7) {
+        throw new Error('Invalid tuple format');
+      }
+
+      const [w, h, vx, vy, vw, vh, paths] = tuple;
+
+      if (!Array.isArray(paths)) {
+        throw new Error('Invalid tuple paths');
+      }
+
+      return {
+        w,
+        h,
+        vb: [vx, vy, vw, vh],
+        p: paths.map((path) => {
+          if (!Array.isArray(path) || path.length < 2) {
+            throw new Error('Invalid tuple path item');
+          }
+
+          const [fill, ops, fillRule] = path;
+          const item = {
+            f: fill || undefined,
+            o: ops,
+          };
+
+          if (fillRule) item.r = fillRule;
+          return item;
+        }),
+      };
+    }
+
+    function getSafeExportName(exportName) {
+      return exportName && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(exportName)
+        ? exportName
+        : 'bakedIcon';
+    }
+
+    function toTsModule(data, exportName) {
+      const safeName = getSafeExportName(exportName);
+      return `import type { BakedSvg } from './engine';
+
+export const ${safeName}: BakedSvg = ${JSON.stringify(data, null, 2)};
+`;
+    }
+
+    function toCompactTsModule(data, exportName) {
+      const safeName = getSafeExportName(exportName);
+      return `import type { BakedSvg } from './engine';
+export const ${safeName}:BakedSvg=${JSON.stringify(data)};
+`;
+    }
+
+    function stringifyOutput(data, mode, exportName, precision) {
+      const tuple = toTupleData(data);
+      const encodedTuple = toEncodedTupleData(data, precision);
+
+      switch (mode) {
+        case 'encoded':
+          return JSON.stringify(encodedTuple);
+        case 'tuple':
+          return JSON.stringify(tuple);
+        case 'tuple-json':
+          return JSON.stringify(tuple, null, 2);
+        case 'compact-json':
+          return JSON.stringify(data);
+        case 'compact-ts':
+          return toCompactTsModule(data, exportName);
+        case 'json':
+          return JSON.stringify(data, null, 2);
+        case 'ts':
+          return toTsModule(data, exportName);
+        default:
+          return JSON.stringify(tuple);
+      }
+    }
+
+    function parseOutputText(text) {
+      const value = text.trim();
+      if (!value) throw new Error('Output is empty');
+
+      if (value.startsWith('[')) {
+        return fromTupleData(JSON.parse(value));
+      }
+
+      if (value.startsWith('{')) {
+        return JSON.parse(value);
+      }
+
+      const startObject = value.indexOf('{');
+      const endObject = value.lastIndexOf('}');
+      if (startObject !== -1 && endObject !== -1 && endObject > startObject) {
+        return JSON.parse(value.slice(startObject, endObject + 1));
+      }
+
+      const startTuple = value.indexOf('[');
+      const endTuple = value.lastIndexOf(']');
+      if (startTuple !== -1 && endTuple !== -1 && endTuple > startTuple) {
+        return fromTupleData(JSON.parse(value.slice(startTuple, endTuple + 1)));
+      }
+
+      throw new Error('Output must be raw JSON, tuple, or TS module output');
+    }
+
+    function drawOps(ctx, ops) {
+      let i = 0;
+      ctx.beginPath();
+
+      while (i < ops.length) {
+        const op = ops[i++];
+
+        switch (op) {
+          case Op.M:
+            ctx.moveTo(ops[i++], ops[i++]);
+            break;
+          case Op.L:
+            ctx.lineTo(ops[i++], ops[i++]);
+            break;
+          case Op.C:
+            ctx.bezierCurveTo(
+              ops[i++], ops[i++],
+              ops[i++], ops[i++],
+              ops[i++], ops[i++],
+            );
+            break;
+          case Op.Q:
+            ctx.quadraticCurveTo(
+              ops[i++], ops[i++],
+              ops[i++], ops[i++],
+            );
+            break;
+          case Op.Z:
+            ctx.closePath();
+            break;
+          default:
+            throw new Error(`Unknown baked op: ${op}`);
+        }
+      }
+    }
+
+    function drawBakedSvg(ctx, svg, dx = 0, dy = 0, dw = svg.w, dh = svg.h) {
+      const [vx, vy, vw, vh] = svg.vb;
+
+      ctx.save();
+      ctx.translate(dx, dy);
+      ctx.scale(dw / vw, dh / vh);
+      ctx.translate(-vx, -vy);
+
+      for (const path of svg.p) {
+        drawOps(ctx, path.o);
+
+        if (path.f) {
+          ctx.fillStyle = path.f;
+          ctx.fill(path.r === 'evenodd' ? 'evenodd' : 'nonzero');
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function renderPreview(baked) {
+      const ratio = window.devicePixelRatio || 1;
+      const cssSize = 192;
+      canvas.width = Math.round(cssSize * ratio);
+      canvas.height = Math.round(cssSize * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, cssSize, cssSize);
+
+      const padding = 24;
+      const scale = Math.min(
+        (cssSize - padding * 2) / baked.w,
+        (cssSize - padding * 2) / baked.h,
+      );
+
+      const dw = baked.w * scale;
+      const dh = baked.h * scale;
+      const dx = (cssSize - dw) / 2;
+      const dy = (cssSize - dh) / 2;
+
+      drawBakedSvg(ctx, baked, dx, dy, dw, dh);
+    }
+
+    function updateMeta(baked, sourceText, outputText) {
+      const opCount = baked.p.reduce((sum, path) => sum + path.o.length, 0);
+      const sourceBytes = new Blob([sourceText]).size;
+      const outputBytes = new Blob([outputText]).size;
+
+      metaEl.innerHTML = `
+        <strong>Result</strong><br />
+        Size: <code>${baked.w}×${baked.h}</code><br />
+        ViewBox: <code>${baked.vb.join(' ')}</code><br />
+        Paths: <code>${baked.p.length}</code><br />
+        Baked numbers/opcodes: <code>${opCount}</code><br />
+        SVG input size: <code>${sourceBytes} bytes</code><br />
+        Output size: <code>${outputBytes} bytes</code><br /><br />
+        <strong>Supported now</strong><br />
+        <code>&lt;path&gt;</code>, <code>fill</code>, <code>fill-rule</code>, path commands <code>M L H V C Q Z</code> and relative variants.<br /><br />
+        Not supported yet: <code>A</code>, <code>S</code>, <code>T</code>, <code>stroke</code>, gradients, masks, transforms.
+      `;
+    }
+
+    function bakeFromUI() {
+      try {
+        const sourceText = svgInput.value.trim();
+        const precision = Number(precisionInput.value || 4);
+        const baked = bakeSvg(sourceText, precision);
+        const outputText = stringifyOutput(
+          baked,
+          outputMode.value,
+          exportNameInput.value.trim(),
+          precision,
+        );
+
+        output.value = outputText;
+        renderPreview(baked);
+        updateMeta(baked, sourceText, outputText);
+        setStatus('Baked successfully', 'ok');
+      } catch (error) {
+        output.value = '';
+        setStatus(error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    bakeBtn.addEventListener('click', bakeFromUI);
+    outputMode.addEventListener('change', bakeFromUI);
+    precisionInput.addEventListener('change', bakeFromUI);
+
+    formatBtn.addEventListener('click', () => {
+      try {
+        const data = parseOutputText(output.value);
+        const currentMode = outputMode.value;
+        const nextMode = currentMode === 'encoded' || currentMode === 'tuple' || currentMode === 'tuple-json'
+          ? 'tuple-json'
+          : currentMode === 'compact-ts' || currentMode === 'ts'
+            ? 'ts'
+            : 'json';
+        outputMode.value = nextMode;
+        output.value = stringifyOutput(data, nextMode, exportNameInput.value.trim(), Number(precisionInput.value || 4));
+        updateMeta(data, svgInput.value.trim(), output.value);
+        setStatus('Formatted output', 'ok');
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : String(error), 'error');
+      }
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      if (!output.value) return;
+      await navigator.clipboard.writeText(output.value);
+      setStatus('Copied', 'ok');
+    });
+
+    bakeFromUI();
+  </script>
+</body>
+</html>
