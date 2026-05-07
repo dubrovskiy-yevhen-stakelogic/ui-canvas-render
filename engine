@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canvas Engine Demo</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111318;
+      color: #f4f4f5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1f2937 0, #111318 48%, #090a0d 100%);
+    }
+
+    .app {
+      max-width: 1500px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .hint {
+      margin: 6px 0 0;
+      color: #a1a1aa;
+      font-size: 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: #a1a1aa;
+    }
+
+    input,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input {
+      height: 38px;
+      border: 1px solid #303642;
+      border-radius: 10px;
+      padding: 0 10px;
+      background: #151922;
+      color: #f4f4f5;
+      min-width: 100px;
+    }
+
+    button {
+      height: 38px;
+      border: 0;
+      border-radius: 10px;
+      padding: 0 14px;
+      background: #ffc400;
+      color: #18181b;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #27272a;
+      color: #f4f4f5;
+      border: 1px solid #3f3f46;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      border: 1px solid #27272a;
+      border-radius: 18px;
+      background: rgba(17, 19, 24, 0.78);
+      overflow: hidden;
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.25);
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #27272a;
+      background: rgba(255, 255, 255, 0.03);
+      font-weight: 700;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 320px;
+      display: block;
+      resize: vertical;
+      border: 0;
+      padding: 14px;
+      outline: none;
+      background: #0b0d12;
+      color: #e5e7eb;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    .preview-wrap {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+    }
+
+    .canvas-wrap {
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 500px;
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      border-radius: 14px;
+      background:
+        linear-gradient(45deg, #20242d 25%, transparent 25%),
+        linear-gradient(-45deg, #20242d 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #20242d 75%),
+        linear-gradient(-45deg, transparent 75%, #20242d 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+      background-color: #111318;
+      box-shadow: inset 0 0 0 1px #27272a;
+    }
+
+    .meta {
+      padding: 14px;
+      border-left: 1px solid #27272a;
+      color: #d4d4d8;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .meta code {
+      background: #27272a;
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    .status {
+      min-height: 22px;
+      color: #a1a1aa;
+      font-size: 13px;
+    }
+
+    .status.error {
+      color: #fb7185;
+    }
+
+    .status.ok {
+      color: #86efac;
+    }
+
+    @media (max-width: 1100px) {
+      .grid,
+      .preview-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .meta {
+        border-left: 0;
+        border-top: 1px solid #27272a;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Canvas Engine Demo</h1>
+        <p class="hint">
+          Paste output from baker, set placements, and render on canvas.
+        </p>
+      </div>
+
+      <div class="controls">
+        <label>
+          Canvas width
+          <input id="canvasWidth" type="number" value="800" />
+        </label>
+
+        <label>
+          Canvas height
+          <input id="canvasHeight" type="number" value="500" />
+        </label>
+
+        <button id="renderBtn">Render</button>
+        <button id="clearBtn" class="secondary">Clear</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <section class="panel">
+        <div class="panel-title">Baked input</div>
+        <textarea id="bakedInput" spellcheck="false">[30,30,0,0,30,30,2,[["#FFC400","AH4HAAAAAAnuBAA4EQAgECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQECgQE"]]]</textarea>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Placements</div>
+        <textarea id="placementsInput" spellcheck="false"># x,y,w,h
+20,20,32,32
+80,20,64,64
+180,20,96,96
+320,20,128,128
+
+# x,y uses original baked size
+20,180
+70,180
+120,180</textarea>
+      </section>
+    </section>
+
+    <section class="panel preview-wrap">
+      <div class="canvas-wrap">
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div class="meta" id="meta">
+        <strong>Supported formats</strong><br />
+        Object JSON:<br />
+        <code>{"w":30,"h":30,"vb":[...],"p":[...]}</code><br /><br />
+
+        Compact Tuple:<br />
+        <code>[w,h,vx,vy,vw,vh,paths]</code><br /><br />
+
+        Encoded VLQ Tuple:<br />
+        <code>[w,h,vx,vy,vw,vh,precision,paths]</code><br /><br />
+
+        Placements:<br />
+        <code>x,y</code> or <code>x,y,w,h</code>
+      </div>
+    </section>
+
+    <div id="status" class="status"></div>
+  </main>
+
+  <script>
+    const Op = {
+      M: 0,
+      L: 1,
+      C: 2,
+      Q: 3,
+      Z: 4,
+    };
+
+    const VLQ_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const VLQ_LOOKUP = Object.fromEntries(
+      [...VLQ_CHARS].map((char, index) => [char, index])
+    );
+
+    const bakedInput = document.getElementById('bakedInput');
+    const placementsInput = document.getElementById('placementsInput');
+    const canvasWidthInput = document.getElementById('canvasWidth');
+    const canvasHeightInput = document.getElementById('canvasHeight');
+    const renderBtn = document.getElementById('renderBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const canvas = document.getElementById('canvas');
+    const statusEl = document.getElementById('status');
+    const metaEl = document.getElementById('meta');
+    const ctx = canvas.getContext('2d');
+
+    function setStatus(text, type) {
+      statusEl.textContent = text;
+      statusEl.className = `status ${type || ''}`;
+    }
+
+    function resizeCanvas(cssWidth, cssHeight) {
+      const ratio = window.devicePixelRatio || 1;
+
+      canvas.width = Math.round(cssWidth * ratio);
+      canvas.height = Math.round(cssHeight * ratio);
+      canvas.style.width = cssWidth + 'px';
+      canvas.style.height = cssHeight + 'px';
+
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
+    }
+
+    function clearCanvas() {
+      const cssWidth = Number(canvasWidthInput.value) || 800;
+      const cssHeight = Number(canvasHeightInput.value) || 500;
+
+      resizeCanvas(cssWidth, cssHeight);
+      setStatus('Canvas cleared', 'ok');
+    }
+
+    function createVlqReader(text) {
+      let index = 0;
+
+      return () => {
+        let result = 0;
+        let multiplier = 1;
+        let continuation = true;
+
+        while (continuation) {
+          if (index >= text.length) {
+            throw new Error('Unexpected end of VLQ string');
+          }
+
+          const char = text[index++];
+          const digit = VLQ_LOOKUP[char];
+
+          if (digit == null) {
+            throw new Error(`Invalid VLQ character: ${char}`);
+          }
+
+          continuation = digit >= 32;
+          result += (digit % 32) * multiplier;
+          multiplier *= 32;
+        }
+
+        return result % 2 === 1 ? -((result + 1) / 2) : result / 2;
+      };
+    }
+
+    function dequantize(value, precision) {
+      const scale = 10 ** precision;
+      const n = value / scale;
+      return Object.is(n, -0) ? 0 : n;
+    }
+
+    function decodeOpsVlq(text, precision) {
+      const read = createVlqReader(text);
+      const ops = [];
+
+      let x = 0;
+      let y = 0;
+      let sx = 0;
+      let sy = 0;
+
+      const readPointFromBase = (baseX, baseY) => {
+        const px = baseX + read();
+        const py = baseY + read();
+        return [px, py];
+      };
+
+      while (true) {
+        let op;
+
+        try {
+          op = read();
+        } catch (error) {
+          if (error instanceof Error && error.message === 'Unexpected end of VLQ string') {
+            break;
+          }
+
+          throw error;
+        }
+
+        ops.push(op);
+
+        switch (op) {
+          case Op.M: {
+            const [nx, ny] = readPointFromBase(x, y);
+
+            x = nx;
+            y = ny;
+            sx = x;
+            sy = y;
+
+            ops.push(
+              dequantize(x, precision),
+              dequantize(y, precision)
+            );
+
+            break;
+          }
+
+          case Op.L: {
+            const [nx, ny] = readPointFromBase(x, y);
+
+            x = nx;
+            y = ny;
+
+            ops.push(
+              dequantize(x, precision),
+              dequantize(y, precision)
+            );
+
+            break;
+          }
+
+          case Op.C: {
+            const baseX = x;
+            const baseY = y;
+
+            const [x1, y1] = readPointFromBase(baseX, baseY);
+            const [x2, y2] = readPointFromBase(baseX, baseY);
+            const [nx, ny] = readPointFromBase(baseX, baseY);
+
+            x = nx;
+            y = ny;
+
+            ops.push(
+              dequantize(x1, precision),
+              dequantize(y1, precision),
+              dequantize(x2, precision),
+              dequantize(y2, precision),
+              dequantize(x, precision),
+              dequantize(y, precision)
+            );
+
+            break;
+          }
+
+          case Op.Q: {
+            const baseX = x;
+            const baseY = y;
+
+            const [x1, y1] = readPointFromBase(baseX, baseY);
+            const [nx, ny] = readPointFromBase(baseX, baseY);
+
+            x = nx;
+            y = ny;
+
+            ops.push(
+              dequantize(x1, precision),
+              dequantize(y1, precision),
+              dequantize(x, precision),
+              dequantize(y, precision)
+            );
+
+            break;
+          }
+
+          case Op.Z: {
+            x = sx;
+            y = sy;
+            break;
+          }
+
+          default:
+            throw new Error(`Unknown decoded op: ${op}`);
+        }
+      }
+
+      return ops;
+    }
+
+    function fromEncodedTupleData(tuple) {
+      if (!Array.isArray(tuple) || tuple.length < 8) {
+        throw new Error('Invalid encoded tuple format');
+      }
+
+      const [w, h, vx, vy, vw, vh, precision, paths] = tuple;
+
+      if (!Array.isArray(paths)) {
+        throw new Error('Invalid encoded tuple paths');
+      }
+
+      return {
+        w,
+        h,
+        vb: [vx, vy, vw, vh],
+        p: paths.map((path) => {
+          if (!Array.isArray(path) || path.length < 2) {
+            throw new Error('Invalid encoded tuple path item');
+          }
+
+          const [fill, encodedOps, fillRule] = path;
+
+          if (typeof encodedOps !== 'string') {
+            throw new Error('Encoded tuple path must contain encoded ops string');
+          }
+
+          const item = {
+            f: fill || undefined,
+            o: decodeOpsVlq(encodedOps, precision),
+          };
+
+          if (fillRule) {
+            item.r = fillRule;
+          }
+
+          return item;
+        }),
+      };
+    }
+
+    function fromTupleData(tuple) {
+      // Encoded VLQ Tuple:
+      // [w,h,vx,vy,vw,vh,precision,paths]
+      if (
+        Array.isArray(tuple) &&
+        tuple.length >= 8 &&
+        typeof tuple[6] === 'number' &&
+        Array.isArray(tuple[7])
+      ) {
+        return fromEncodedTupleData(tuple);
+      }
+
+      // Compact Tuple:
+      // [w,h,vx,vy,vw,vh,paths]
+      if (!Array.isArray(tuple) || tuple.length < 7) {
+        throw new Error('Invalid tuple format');
+      }
+
+      const [w, h, vx, vy, vw, vh, paths] = tuple;
+
+      if (!Array.isArray(paths)) {
+        throw new Error('Invalid tuple paths');
+      }
+
+      return {
+        w,
+        h,
+        vb: [vx, vy, vw, vh],
+        p: paths.map((path) => {
+          if (!Array.isArray(path) || path.length < 2) {
+            throw new Error('Invalid tuple path item');
+          }
+
+          const [fill, ops, fillRule] = path;
+
+          if (!Array.isArray(ops)) {
+            throw new Error('Compact tuple path must contain ops array');
+          }
+
+          const item = {
+            f: fill || undefined,
+            o: ops,
+          };
+
+          if (fillRule) {
+            item.r = fillRule;
+          }
+
+          return item;
+        }),
+      };
+    }
+
+    function normalizeBakedData(data) {
+      return Array.isArray(data) ? fromTupleData(data) : data;
+    }
+
+    function parseBakedInput(source) {
+      const text = source.trim();
+
+      if (!text) {
+        throw new Error('Baked input is empty');
+      }
+
+      // Raw object JSON:
+      // {"w":30,"h":30,"vb":[...],"p":[...]}
+      if (text.startsWith('{')) {
+        return JSON.parse(text);
+      }
+
+      // Raw tuple JSON:
+      // [w,h,vx,vy,vw,vh,paths]
+      // [w,h,vx,vy,vw,vh,precision,paths]
+      if (text.startsWith('[')) {
+        return fromTupleData(JSON.parse(text));
+      }
+
+      // TS module support:
+      // import type ...
+      // export const icon = {...};
+      // export const icon = [...];
+      const equalIndex = text.indexOf('=');
+
+      if (equalIndex !== -1) {
+        const rawValue = text
+          .slice(equalIndex + 1)
+          .trim()
+          .replace(/;\s*$/, '');
+
+        return normalizeBakedData(JSON.parse(rawValue));
+      }
+
+      throw new Error(
+        'Could not parse baked input. Paste object JSON, compact tuple, encoded tuple, or TS module output.'
+      );
+    }
+
+    function validateBaked(svg) {
+      if (!svg || typeof svg !== 'object') {
+        throw new Error('Baked object is invalid');
+      }
+
+      if (typeof svg.w !== 'number' || typeof svg.h !== 'number') {
+        throw new Error('Baked object must contain numeric w and h');
+      }
+
+      if (!Array.isArray(svg.vb) || svg.vb.length !== 4) {
+        throw new Error('Baked object must contain vb: [x, y, w, h]');
+      }
+
+      if (!Array.isArray(svg.p)) {
+        throw new Error('Baked object must contain p: []');
+      }
+
+      for (const path of svg.p) {
+        if (!Array.isArray(path.o)) {
+          throw new Error('Every baked path must contain o: []');
+        }
+      }
+    }
+
+    function parsePlacements(text, defaultW, defaultH) {
+      const lines = text.split(/\r?\n/);
+      const placements = [];
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+
+        if (!line || line.startsWith('#')) {
+          continue;
+        }
+
+        const parts = line
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+        if (parts.length !== 2 && parts.length !== 4) {
+          throw new Error(`Invalid placement line: "${line}". Use x,y or x,y,w,h`);
+        }
+
+        const nums = parts.map(Number);
+
+        if (nums.some((n) => !Number.isFinite(n))) {
+          throw new Error(`Invalid number in placement line: "${line}"`);
+        }
+
+        if (nums.length === 2) {
+          placements.push({
+            x: nums[0],
+            y: nums[1],
+            w: defaultW,
+            h: defaultH,
+          });
+        } else {
+          placements.push({
+            x: nums[0],
+            y: nums[1],
+            w: nums[2],
+            h: nums[3],
+          });
+        }
+      }
+
+      return placements;
+    }
+
+    function drawOps(ctx, ops) {
+      let i = 0;
+
+      ctx.beginPath();
+
+      while (i < ops.length) {
+        const op = ops[i++];
+
+        switch (op) {
+          case Op.M:
+            ctx.moveTo(ops[i++], ops[i++]);
+            break;
+
+          case Op.L:
+            ctx.lineTo(ops[i++], ops[i++]);
+            break;
+
+          case Op.C:
+            ctx.bezierCurveTo(
+              ops[i++], ops[i++],
+              ops[i++], ops[i++],
+              ops[i++], ops[i++]
+            );
+            break;
+
+          case Op.Q:
+            ctx.quadraticCurveTo(
+              ops[i++], ops[i++],
+              ops[i++], ops[i++]
+            );
+            break;
+
+          case Op.Z:
+            ctx.closePath();
+            break;
+
+          default:
+            throw new Error(`Unknown op: ${op}`);
+        }
+      }
+    }
+
+    function drawBakedSvg(ctx, svg, dx = 0, dy = 0, dw = svg.w, dh = svg.h) {
+      const [vx, vy, vw, vh] = svg.vb;
+
+      ctx.save();
+
+      ctx.translate(dx, dy);
+      ctx.scale(dw / vw, dh / vh);
+      ctx.translate(-vx, -vy);
+
+      for (const path of svg.p) {
+        drawOps(ctx, path.o);
+
+        if (path.f) {
+          ctx.fillStyle = path.f;
+          ctx.fill(path.r === 'evenodd' ? 'evenodd' : 'nonzero');
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function updateMeta(svg, placements, inputText) {
+      const opCount = svg.p.reduce((sum, path) => sum + path.o.length, 0);
+      const inputBytes = new Blob([inputText]).size;
+      const format =
+        inputText.trim().startsWith('[') && JSON.parse(inputText.trim())[7]
+          ? 'Encoded VLQ Tuple'
+          : inputText.trim().startsWith('[')
+            ? 'Compact Tuple'
+            : 'Object JSON / TS';
+
+      metaEl.innerHTML = `
+        <strong>Render info</strong><br />
+        Format: <code>${format}</code><br />
+        Icon size: <code>${svg.w}×${svg.h}</code><br />
+        ViewBox: <code>${svg.vb.join(' ')}</code><br />
+        Paths: <code>${svg.p.length}</code><br />
+        Decoded numbers/opcodes: <code>${opCount}</code><br />
+        Input size: <code>${inputBytes} bytes</code><br />
+        Placements: <code>${placements.length}</code><br /><br />
+
+        <strong>Placements format</strong><br />
+        <code>x,y</code><br />
+        or<br />
+        <code>x,y,w,h</code><br /><br />
+
+        Comments allowed:<br />
+        <code># comment</code>
+      `;
+    }
+
+    function render() {
+      try {
+        const inputText = bakedInput.value.trim();
+        const baked = parseBakedInput(inputText);
+
+        validateBaked(baked);
+
+        const placements = parsePlacements(
+          placementsInput.value,
+          baked.w,
+          baked.h
+        );
+
+        const cssWidth = Number(canvasWidthInput.value) || 800;
+        const cssHeight = Number(canvasHeightInput.value) || 500;
+
+        resizeCanvas(cssWidth, cssHeight);
+
+        for (const item of placements) {
+          drawBakedSvg(ctx, baked, item.x, item.y, item.w, item.h);
+        }
+
+        updateMeta(baked, placements, inputText);
+        setStatus(`Rendered ${placements.length} instance(s)`, 'ok');
+      } catch (error) {
+        console.error(error);
+        setStatus(error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    renderBtn.addEventListener('click', render);
+    clearBtn.addEventListener('click', clearCanvas);
+
+    render();
+  </script>
+</body>
+</html>
